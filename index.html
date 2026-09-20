@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Para mi Niña 🌻</title>
+    
+    <!-- Fuente que imita la escritura a mano de la imagen -->
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js y OrbitControls desde CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            font-family: 'Caveat', cursive;
+            overflow: hidden;
+        }
+
+        /* --- PANTALLA DE INICIO (Igual a la Imagen 1) --- */
+        #intro-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            transition: opacity 1.5s ease-in-out;
+            cursor: pointer;
+        }
+
+        .intro-flower {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.8));
+            animation: pulseGlow 2s infinite alternate;
+        }
+
+        .intro-text {
+            color: #FFF2A8;
+            font-size: 2.2rem;
+            letter-spacing: 2px;
+            font-weight: 500;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        @keyframes pulseGlow {
+            0% { filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.5)) scale(1); }
+            100% { filter: drop-shadow(0 0 40px rgba(255, 215, 0, 1)) scale(1.05); }
+        }
+
+        /* --- CONTENEDORES 3D Y UI --- */
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #labels-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Deja pasar los clicks al canvas para rotar */
+        }
+
+        /* --- TEXTOS FLOTANTES --- */
+        .floating-label {
+            position: absolute;
+            color: rgba(255, 250, 200, 0.9);
+            font-family: 'Caveat', cursive;
+            white-space: nowrap;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.2s ease-out; /* Para cuando se ocultan detrás del planeta */
+            pointer-events: auto; /* Permite clicks si se necesita */
+            cursor: default;
+        }
+
+        .label-main {
+            font-size: 3.5rem;
+            color: #FFE066;
+            text-shadow: 0 0 15px rgba(255, 150, 0, 0.8);
+            font-weight: 700;
+            z-index: 100;
+        }
+
+        .label-medium {
+            font-size: 1.8rem;
+            color: #FFF9D2;
+            text-shadow: 0 0 8px rgba(200, 150, 0, 0.5);
+        }
+
+        .label-small {
+            font-size: 1.2rem;
+            color: #E6E0C8;
+            opacity: 0.8;
+        }
+
+        /* --- FLORES Y RAMOS FLOTANTES --- */
+        .floating-icon {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.2s ease-out, transform 0.3s ease;
+            pointer-events: auto;
+            cursor: pointer;
+            filter: drop-shadow(0 0 10px rgba(255, 200, 0, 0.4));
+        }
+
+        .floating-icon:hover {
+            filter: drop-shadow(0 0 20px rgba(255, 200, 0, 0.9));
+        }
+
+        /* --- BOTÓN DE MÚSICA --- */
+        #music-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(30, 30, 30, 0.6);
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            color: #FFD700;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 1000;
+            font-size: 24px;
+            transition: all 0.3s;
+        }
+
+        #music-btn:hover {
+            background: rgba(255, 215, 0, 0.2);
+            transform: scale(1.1);
+        }
+
+        /* Mensajes al hacer click */
+        .toast {
+            position: absolute;
+            background: rgba(20, 20, 20, 0.9);
+            border: 1px solid #FFD700;
+            color: #FFF2A8;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 1.5rem;
+            pointer-events: none;
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.5);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 500;
+            box-shadow: 0 0 20px rgba(255, 200, 0, 0.3);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translate(-50%, -100%) scale(1);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Audio Local -->
+    <audio id="bg-music" loop preload="auto">
+        <source src="dandelions.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Pantalla de Inicio -->
+    <div id="intro-screen">
+        <!-- Girasol en SVG para replicar exactamente el estilo del emoji 3D -->
+        <svg class="intro-flower" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <g id="flower">
+                <!-- Tallo y Hojas -->
+                <path d="M50 60 Q50 90 50 100" stroke="#5C8C46" stroke-width="6" stroke-linecap="round" fill="none"/>
+                <path d="M50 85 Q35 90 30 75 Q45 70 50 85" fill="#5C8C46"/>
+                <path d="M50 75 Q65 80 70 65 Q55 60 50 75" fill="#5C8C46"/>
+                <!-- Pétalos (Fondo dorado, frente amarillo claro) -->
+                <g fill="#F2A900">
+                    <circle cx="50" cy="20" r="8"/> <circle cx="50" cy="80" r="8"/>
+                    <circle cx="20" cy="50" r="8"/> <circle cx="80" cy="50" r="8"/>
+                    <circle cx="28" cy="28" r="8"/> <circle cx="72" cy="72" r="8"/>
+                    <circle cx="28" cy="72" r="8"/> <circle cx="72" cy="28" r="8"/>
+                </g>
+                <g fill="#FFD700">
+                    <circle cx="50" cy="25" r="8"/> <circle cx="50" cy="75" r="8"/>
+                    <circle cx="25" cy="50" r="8"/> <circle cx="75" cy="50" r="8"/>
+                    <circle cx="32" cy="32" r="8"/> <circle cx="68" cy="68" r="8"/>
+                    <circle cx="32" cy="68" r="8"/> <circle cx="68" cy="32" r="8"/>
+                </g>
+                <!-- Centro café oscuro con textura -->
+                <circle cx="50" cy="50" r="18" fill="#4A3018"/>
+                <circle cx="50" cy="50" r="14" fill="#3B2411" stroke="#5D3A1F" stroke-width="2" stroke-dasharray="2,2"/>
+                <path d="M40 40 L60 60 M40 60 L60 40 M50 35 L50 65 M35 50 L65 50" stroke="#2A170A" stroke-width="1" opacity="0.5"/>
+            </g>
+        </svg>
+        <div class="intro-text">Toca para iniciar</div>
+    </div>
+
+    <!-- Contenedores -->
+    <div id="canvas-container"></div>
+    <div id="labels-container"></div>
+    <button id="music-btn">🎵</button>
+    <div id="toast-message" class="toast"></div>
+
+    <script>
+        // Variables de Música
+        const music = document.getElementById('bg-music');
+        const musicBtn = document.getElementById('music-btn');
+        const introScreen = document.getElementById('intro-screen');
+        let isStarted = false;
+        let isMusicPlaying = false;
+
+        // --- CONFIGURACIÓN THREE.JS ---
+        const container = document.getElementById('canvas-container');
+        const labelsContainer = document.getElementById('labels-container');
+        
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000); // Espacio negro
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.z = 100;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimización
+        container.appendChild(renderer.domElement);
+
+        // Controles de cámara para poder arrastrar y girar
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enablePan = false;
+        controls.enableZoom = true;
+        controls.minDistance = 50;
+        controls.maxDistance = 200;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.5;
+
+        // --- ELEMENTOS DE LA ESCENA ---
+
+        // 1. El Planeta Negro (Círculo central que oculta lo de atrás)
+        const planetGeo = new THREE.SphereGeometry(18, 64, 64);
+        // Usamos BasicMaterial para que sea negro puro sin reflejos
+        const planetMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const planet = new THREE.Mesh(planetGeo, planetMat);
+        scene.add(planet);
+
+        // 2. El Anillo Brillante
+        // Generar textura procedural para el anillo con HTML Canvas
+        function createRingTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            const center = 256;
+
+            // Degradado radial intenso
+            const gradient = ctx.createRadialGradient(center, center, 100, center, center, 256);
+            gradient.addColorStop(0.0, 'rgba(255, 255, 255, 1)');     // Centro blanco
+            gradient.addColorStop(0.2, 'rgba(255, 230, 100, 0.9)');   // Amarillo muy claro
+            gradient.addColorStop(0.4, 'rgba(255, 170, 0, 0.8)');     // Naranja brillante
+            gradient.addColorStop(0.7, 'rgba(150, 70, 0, 0.4)');      // Naranja oscuro
+            gradient.addColorStop(1.0, 'rgba(0, 0, 0, 0)');           // Transparente al borde
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Líneas concéntricas para darle textura
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.beginPath(); ctx.arc(center, center, 150, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(center, center, 190, 0, Math.PI*2); ctx.stroke();
+            ctx.strokeStyle = 'rgba(255, 200, 0, 0.1)';
+            ctx.lineWidth = 5;
+            ctx.beginPath(); ctx.arc(center, center, 220, 0, Math.PI*2); ctx.stroke();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const ringTexture = createRingTexture();
+        const ringGeo = new THREE.PlaneGeometry(80, 80);
+        const ringMat = new THREE.MeshBasicMaterial({
+            map: ringTexture,
+            transparent: true,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 1.7; // Inclinación como en la imagen
+        scene.add(ring);
+
+        // 3. Estrellas
+        function createStars() {
+            const starsGeo = new THREE.BufferGeometry();
+            const starsCount = 1500;
+            const posArray = new Float32Array(starsCount * 3);
+            for(let i = 0; i < starsCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 600;
+            }
+            starsGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const starsMat = new THREE.PointsMaterial({
+                size: 1.5,
+                color: 0xFFFFFF,
+                transparent: true,
+                opacity: 0.8
+            });
+            return new THREE.Points(starsGeo, starsMat);
+        }
+        scene.add(createStars());
+
+        // --- TEXTOS Y FLORES (HTML PROYECTADOS EN 3D) ---
+        
+        // Frases exactas o similares inspiradas en la imagen
+        const texts = [
+            { text: "Feliz Día de las Flores Amarillas niña", type: "main", pos: [0, 25, 0] },
+            { text: "Para Aleja, Att: Daniel ❤️", type: "main", pos: [0, -35, 30] },
+            { text: "Hoy celebro tenerte", type: "medium", pos: [-35, -10, 15] },
+            { text: "Contigo el día pesa menos", type: "medium", pos: [0, -30, 20] },
+            { text: "Aquí siempre tienes un lugar", type: "medium", pos: [30, 5, -15] },
+            { text: "Contigo todo lugar es bonito", type: "medium", pos: [40, -15, 10] },
+            { text: "Miras lo bueno, como el girasol", type: "medium", pos: [-25, -25, -10] },
+            { text: "Que esta flor te alcance hoy", type: "medium", pos: [-40, 15, -20] },
+            { text: "El campo entero te manda saludos", type: "medium", pos: [20, -45, 0] },
+            { text: "Un girasol para quien ilumina", type: "small", pos: [-20, 10, 25] },
+            { text: "Contigo las tardes se hacen cortas", type: "small", pos: [25, 20, 10] },
+            { text: "Tú, mi lugar favorito", type: "small", pos: [15, 35, -5] },
+            { text: "Gracias por quedarte siempre", type: "small", pos: [-30, 30, 5] },
+            { text: "Un abrazo que no necesita fecha", type: "small", pos: [0, 40, -20] },
+            { text: "Pétalos dorados solo para ti", type: "small", pos: [35, 25, -25] },
+            { text: "I'm in a field of dandelions...", type: "small", pos: [-45, 0, 5] },
+            { text: "Wishing on every one that you'd be mine", type: "small", pos: [45, 5, 25] }
+        ];
+
+        // Emojis/Imágenes
+        const icons = [
+            { icon: "🌻", size: "80px", pos: [35, 10, 25] }, // Girasol grande derecha
+            { icon: "💐", size: "60px", pos: [-30, 5, 30] },  // Ramo izquierda
+            { icon: "🌻", size: "40px", pos: [-15, -15, 20] },
+            { icon: "💐", size: "50px", pos: [10, -20, 35] },
+            { icon: "🌻", size: "30px", pos: [20, 15, -15] },
+            { icon: "🌻", size: "45px", pos: [-25, 20, -10] },
+            { icon: "💐", size: "40px", pos: [30, -25, 5] },
+            { icon: "🌻", size: "25px", pos: [5, 30, 15] },
+            { icon: "🌻", size: "35px", pos: [-10, -35, 5] }
+        ];
+
+        const clickMessages = [
+            "🌻 Guardada para ti",
+            "✨ Un rayito de luz",
+            "💛 Porque te quiero",
+            "🌻 Otra más para la colección",
+            "💐 Un ramo entero para mi niña"
+        ];
+
+        const raycaster = new THREE.Raycaster();
+        const htmlElements = []; // Guardará { element, position, isIcon }
+
+        // Función para añadir elementos HTML al espacio 3D
+        function addHtmlElement(content, type, size, position, isIcon = false) {
+            const el = document.createElement('div');
+            el.innerHTML = content;
+            
+            if (isIcon) {
+                el.className = 'floating-icon';
+                el.style.fontSize = size;
+                
+                // Interactividad de click
+                el.addEventListener('click', (e) => {
+                    const msg = clickMessages[Math.floor(Math.random() * clickMessages.length)];
+                    showToast(e.clientX, e.clientY, msg);
+                });
+            } else {
+                el.className = `floating-label label-${type}`;
+            }
+
+            labelsContainer.appendChild(el);
+            
+            // Convertir posición a Vector3 de Three.js
+            const vecPos = new THREE.Vector3(position[0], position[1], position[2]);
+            
+            htmlElements.push({
+                element: el,
+                pos: vecPos,
+                isIcon: isIcon
+            });
+        }
+
+        // Crear los elementos
+        texts.forEach(item => addHtmlElement(item.text, item.type, null, item.pos, false));
+        icons.forEach(item => addHtmlElement(item.icon, null, item.size, item.pos, true));
+
+        const tempV = new THREE.Vector3();
+        function updateLabelsPosition() {
+            htmlElements.forEach(item => {
+                // Copiar la posición original
+                tempV.copy(item.pos);
+                
+                // Si tuviéramos los elementos dentro de un grupo que rota, aplicaríamos la matriz aquí.
+                // Como OrbitControls mueve la cámara, proyectar directamente funciona perfecto.
+                
+                // Calcular distancia de la cámara al objeto para saber si está detrás del planeta (Raycasting)
+                raycaster.setFromCamera(tempV.clone().project(camera), camera);
+                const intersects = raycaster.intersectObject(planet);
+                
+                let isObstructed = false;
+                if (intersects.length > 0) {
+                    // Si el rayo choca con el planeta ANTES de llegar al texto, el texto está detrás
+                    if (intersects[0].distance < camera.position.distanceTo(item.pos)) {
+                        isObstructed = true;
+                    }
+                }
+
+                // Proyectar coordenadas 3D a pantalla 2D
+                tempV.project(camera);
+
+                // Si está detrás de la cámara (z > 1) o detrás del planeta, ocultarlo
+                if (tempV.z > 1 || isObstructed) {
+                    item.element.style.opacity = '0';
+                    item.element.style.pointerEvents = 'none';
+                } else {
+                    item.element.style.opacity = '1';
+                    item.element.style.pointerEvents = 'auto';
+                    
+                    // Convertir a pixeles
+                    const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+                    const y = (tempV.y * -0.5 + 0.5) * window.innerHeight;
+                    
+                    // Parallax sutil basado en el tiempo para que floten suavemente en su lugar
+                    const time = Date.now() * 0.001;
+                    const floatX = Math.sin(time + item.pos.x) * 5;
+                    const floatY = Math.cos(time + item.pos.y) * 5;
+
+                    item.element.style.transform = `translate(-50%, -50%) translate(${x + floatX}px, ${y + floatY}px)`;
+                    
+                    // Escalar según la distancia para dar profundidad
+                    const scale = Math.max(0.3, 1 - (camera.position.distanceTo(item.pos) / 300));
+                    
+                    if(item.isIcon) {
+                         item.element.style.transform += ` scale(${scale})`;
+                    } else {
+                         // Para texto, escalar pero evitar que se vuelva borroso, mejor usar zoom
+                         item.element.style.transform += ` scale(${scale})`;
+                    }
+                }
+            });
+        }
+
+        function showToast(x, y, text) {
+            const toast = document.getElementById('toast-message');
+            toast.innerText = text;
+            toast.style.left = `${x}px`;
+            toast.style.top = `${y}px`;
+            
+            toast.classList.remove('show');
+            void toast.offsetWidth; // Forzar reflow
+            toast.classList.add('show');
+            
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        // Responsividad
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Evento de inicio forzado para garantizar música
+        introScreen.addEventListener('click', () => {
+            if (isStarted) return; // Evita que un doble clic interrumpa la promesa de audio
+            isStarted = true;
+            introScreen.style.pointerEvents = 'none'; // Desactiva la pantalla para más clics
+
+            // Reproducir música controlando la promesa para evitar AbortError
+            const playPromise = music.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    isMusicPlaying = true;
+                    musicBtn.innerText = '🎵';
+                    console.log("Música iniciada correctamente");
+                }).catch(e => {
+                    console.log("Interrupción o bloqueo del navegador:", e);
+                    musicBtn.innerText = '🔇';
+                    isMusicPlaying = false;
+                    showToast(window.innerWidth / 2, window.innerHeight - 100, "⚠️ Verifica tener 'dandelions.mp3' en la misma carpeta");
+                });
+            }
+
+            // Animación de desaparición
+            introScreen.style.opacity = '0';
+            setTimeout(() => {
+                introScreen.style.display = 'none';
+            }, 1500);
+        });
+
+        // Botón de control de música
+        musicBtn.addEventListener('click', () => {
+            if (isMusicPlaying) {
+                music.pause();
+                isMusicPlaying = false;
+                musicBtn.innerText = '🔇';
+            } else {
+                const playPromise = music.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        isMusicPlaying = true;
+                        musicBtn.innerText = '🎵';
+                    }).catch(e => {
+                        console.log("Error al reproducir:", e);
+                        isMusicPlaying = false;
+                        showToast(window.innerWidth / 2, window.innerHeight - 100, "⚠️ Asegúrate de tener dandelions.mp3 junto al html");
+                    });
+                }
+            }
+        });
+
+        // Bucle de renderizado
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // OrbitControls se actualiza siempre para la inercia
+            controls.update();
+
+            // Rotar lentamente el anillo para dar vida
+            ring.rotation.z += 0.001;
+
+            if (isStarted) {
+                updateLabelsPosition();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+    </script>
+</body>
+</html>
